@@ -204,6 +204,34 @@ class CombinedLoss(_Loss):
         return y_1 + y_2
 
 
+class CombinedLossSimplified(_Loss):
+    """
+    A combination of dice and cross entropy loss
+    """
+
+    def __init__(self):
+        super(CombinedLossSimplified, self).__init__()
+
+        self.cross_entropy_loss = nn.CrossEntropyLoss(reduction='none')
+        self.dice_loss = DiceLoss()
+
+    def forward(self, input, target, weight=None):
+        """
+        Forward pass
+
+        :param input: torch.tensor (NxCxHxW)
+        :param target: torch.tensor (NxHxW)
+        :param weight: torch.tensor (NxHxW)
+        :return: scalar
+        """
+        y_2 = self.dice_loss(input, target)
+        if weight is None:
+            y_1 = torch.mean(self.cross_entropy_loss.forward(input, target))
+        else:
+            y_1 = torch.mean(torch.mul(self.cross_entropy_loss.forward(input, target), weight))
+        return y_1 + y_2
+
+
 class CombinedLoss_KLdiv(_Loss):
     """
     A combination of dice  and cross entropy loss
