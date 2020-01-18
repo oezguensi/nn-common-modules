@@ -103,6 +103,36 @@ class DiceLoss(_WeightedLoss):
         return loss_per_channel.sum() / output.size(1)
 
 
+class DiceLossChannelWise(_WeightedLoss):
+    """
+    Dice Loss for a batch of samples
+    """
+
+    def forward(self, output, target, weights=None, ignore_indices=None):
+        output = F.softmax(output, dim=1)
+
+        eps = 0.0001
+        encoded_target = torch.zeros_like(output).scatter(1, target.unsqueeze(1), 1)
+
+        intersection = output * encoded_target
+        intersection = intersection.sum(2).sum(2)
+
+        counts = output + encoded_target
+        counts = counts.sum(2).sum(2)
+
+        if ignore_indices is not None and len(ignore_indices) > 0:
+            ignore_indices = torch.tensor(ignore_indices).repeat(output.size(0), 1)
+            intersection = intersection.scatter(1, ignore_indices, 0)
+            counts = counts.scatter(1, ignore_indices, 0)
+
+        if weights is None:
+            weights = 1
+
+        loss_per_channel = weights * (1 - (2 * intersection) / (counts + eps))
+        loss_per_channel[counts == 0] = 0
+        return (loss_per_channel.sum(1) / (counts != 0).sum(1).float()).mean()
+
+
 class IoULoss(_WeightedLoss):
     """
     IoU Loss for a batch of samples
